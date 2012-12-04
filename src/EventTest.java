@@ -5,7 +5,7 @@ import org.junit.Test;
 
 public class EventTest {
 
-	Event event = new Event("Lunch with grandparents", 12, 2, "In Town");
+	Event event = new Event("Lunch with grandparents", 12, 2, "In Town", 6, 12, 2012);
 	/**
 	 * Test to set the place of an event.
 	 */
