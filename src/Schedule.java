@@ -19,35 +19,6 @@ public class Schedule {
 	 * List of all events.
 	 */
 	public ArrayList<Event> eventList = new ArrayList<Event>();
-
-	/**
-	 * Constructor of Schedule.
-	 */
-	public Schedule() {
-	}
-
-	public static void main(String[] args) {
-		Event event1 = new Event("Coding", 20, 2, "Home", 5, 12, 2012);
-		Event event2 = new Event("Testing", 21, 2, "Home", 6, 12, 2012);
-		Goal goal1 = new Goal("Complete homework", 10, 7, 7, 12, 2012);
-		Schedule mySchedule = new Schedule();
-		mySchedule.addEvent(event1);
-		mySchedule.addEvent(event2);
-		mySchedule.addGoal(goal1);
-		ArrayList<CalendarEntry> finalSchedule = mySchedule.produceSchedule();
-		for (CalendarEntry element : finalSchedule) {
-			element.print();
-			System.out.print("\n");
-		}
-		mySchedule.produceGoalSessions(goal1);
-		System.out.println("##############");
-		ArrayList<CalendarEntry> schedule = mySchedule.produceSchedule();
-		for (CalendarEntry element : schedule) {
-			element.print();
-			System.out.print("\n");
-		}
-		
-	}
 	
 	/**
 	 * Method to produce the schedule which is combination of events and goals.
@@ -55,42 +26,33 @@ public class Schedule {
 	 * @return	ArrayList<CalendarEntry>	List of calendar entries.
 	 */
 	public ArrayList<CalendarEntry> produceSchedule() {
-		for (Event element : eventList) {
-			calendarEntries.add((CalendarEntry) element);
-		}
-		
-		eliminateDuplicates();		
 		Collections.sort(calendarEntries);
 		return calendarEntries;
 	}
 
+	
 	/**
 	 * Method to schedule as many session as necessary to achieve the goal.
 	 * @param goal the specific goal that needs to be achieved
 	 */
 	public void produceGoalSessions(Goal goal) {
+		CalendarEntry goalEntry = new CalendarEntry();
 		while (goal.duration > 0) {
-			breakIntoSessions(goal);
-			System.out.println("Session scheduling happened.");
+			if (calculateTimeToNextEntry(goalEntry)) {
+				scheduleASession(goal);
+				/*Update the final schedule.*/
+				produceSchedule();
+				
+			} else {
+				
+				int index = calendarEntries.indexOf(goalEntry);
+				goalEntry.timeInMillis = calendarEntries.get(index + 1).getEndTimeInMillis(); 
+				produceSchedule();
+			}
 		}
+		removeGoal(goal);
 	}
-	
-	/**
-	 * Method to schedule a session for the achievement of the goal.
-	 * Method checks if session could be scheduled. If yes, adds it and produces new version of the schedule.
-	 * @param goal the goal that need to be broken into sessions
-	 */
-	public void breakIntoSessions(Goal goal) {
-		CalendarEntry goalEntry = findGoal(goal);
-		if (calculateTimeToNextEntry(goalEntry)) {
-			scheduleSession(goal);
-			produceSchedule();
-		} else {
-			int index = calendarEntries.indexOf(goalEntry);
-			goalEntry.timeInMillis = calendarEntries.get(index + 1).getEndTimeInMillis(); 
-		}
-	}
-	
+		
 	/**
 	 * Method to calculate if it is possible to schedule a session before the next entry (if there is one).
 	 * @param entry the entry that contains the reference to the goal
@@ -98,15 +60,12 @@ public class Schedule {
 	 */
 	public boolean calculateTimeToNextEntry(CalendarEntry entry) {
 		int index = calendarEntries.indexOf(entry);
+		System.out.println("INDEX IS " + index);
 		long difference;
 		if (index != (calendarEntries.size() - 1)) {
 			difference = calendarEntries.get(index + 1).getTimeInMillis() - entry.getTimeInMillis();
 			long twoHours = TimeUnit.MILLISECONDS.convert(2, TimeUnit.HOURS);;
-			if (difference >= twoHours) {
-				return true;
-			} else {
-				return false;
-			}
+			return difference >= twoHours;
 		} else {
 			return true;
 		}
@@ -117,47 +76,47 @@ public class Schedule {
 	 * Session starts when the achievement of the goal starts.
 	 * @param goal the goal that needs to broken down into sessions
 	 */
-	public void scheduleSession(Goal goal) {
+	public void scheduleASession(Goal goal) {
 		long duration = TimeUnit.MILLISECONDS.convert( 2, TimeUnit.HOURS);
 		CalendarEntry session = new CalendarEntry();
 		session.setName(goal.name);
 		session.timeInMillis = goal.timeInMillis;
 		session.duration = 2; //It is assumed that every session is 2 hours for now
 		calendarEntries.add(session);
-		goal.timeInMillis = goal.timeInMillis + duration; //give timeInMillis a new value so that next session could start at a new time
+		/*Give timeInMillis a new value so that next session could start at a new time*/
+		goal.timeInMillis = goal.timeInMillis + duration; 
 		goal.duration = goal.duration - 2; 
-	}
-	
-	/**
-	 * Method to find a specific event exists in the list of calendar entries.
-	 * @param event The event we're looking for
-	 * @return the entry
-	 */
-	public CalendarEntry findEvent(Event event) {
-		CalendarEntry foundEntry = new CalendarEntry();
-		for (CalendarEntry element : calendarEntries) {
-			if (element == event) {
-				foundEntry = element;
-			}
-		}
-		return foundEntry;
 	}
 	
 	/**
 	 * Method to find a specific goal exists in the list of calendar entries.
 	 * @param goal The goal we're looking for
-	 * @return the entry
+	 * @return true if the goal exists in the list
 	 */
 	public CalendarEntry findGoal(Goal goal) {
-		CalendarEntry foundEntry = new CalendarEntry();
+		CalendarEntry foundGoal = new CalendarEntry();
 		for (CalendarEntry element : calendarEntries) {
 			if (element.goal == goal) {
-				foundEntry = element;
+				foundGoal = element;
 			}
 		}
-		return foundEntry;
+		return foundGoal;
 	}
 	
+	/**
+	 * Method to find if an event with the same details as the passed event
+	 * already exists in the list of calendar entries.
+	 * @param event The event which details we're comparing
+	 * @return true if an event the same details already exists in the list
+	 */
+	public boolean findEvent(Event event) {
+		for (Event element : eventList) {
+			if (checkIfSame(element, event)) {
+				return true;
+			}
+		}
+		return false;
+	}	
 
 	/**
 	 * Method to add an event to list of events
@@ -165,8 +124,13 @@ public class Schedule {
 	 * @return	true if event has been successfully added
 	 */
 	public boolean addEvent(Event event){
-		eventList.add(event);
-		return true;
+		if (findEvent(event)) {
+			return false;
+		} else {
+			eventList.add(event); 
+			calendarEntries.add((CalendarEntry) event);
+			return true; 
+		}		
 	}
 
 	/**
@@ -209,41 +173,18 @@ public class Schedule {
 	}
 	
 	/**
-	 * Method to check if two entries are essentially the same.
-	 * If essentially equal entries are found, the second one is removed.
-	 * @param entry1 One of the calendar entries
-	 * @param entry2 The other one of the calendar entries
-	 * @return true if the entries are essentially the same
+	 * Method to check if two events are essentially the same.
+	 * @param event1 One of the events
+	 * @param event2 The other one of the events
+	 * @return true if the events are essentially the same
 	 */
-	public boolean checkIfSame(CalendarEntry entry1, CalendarEntry entry2) {
-		if (entry1 instanceof Event && entry2 instanceof Event) {
-		if (entry1.name.equals(entry2.name) && entry1.duration == entry2.duration) {
-			if (entry1 instanceof Event && entry2 instanceof Event) {
-				Event event1 = new Event();
-				Event event2 = new Event();
-				event1 = (Event) entry1;
-				event2 = (Event) entry2;
-				if (event1.place.equals(event2.place)) {
-					calendarEntries.remove(entry2);
+	public boolean checkIfSame(Event event1, Event event2) {
+		if (event1.name.equals(event2.name) && event1.duration == event2.duration
+				&& event1.place.equals(event2.place) && event1.day == event2.day
+				&& event1.month == event2.month && event1.year == event2.year) {
 					return true;
-				}
 			} else {
-				calendarEntries.remove(entry2);
-				return true;
+				return false;
 			}
-		}
-		}
-		return false;
-	}
-
-	/**
-	 * Method to eliminate the duplicates in the calendar entry list.
-	 */
-	public void eliminateDuplicates() {
-		for (int i = 0; i < calendarEntries.size() - 1; i++) {
-			for (int j = i+1; j < calendarEntries.size(); j++) {
-				checkIfSame(calendarEntries.get(i), calendarEntries.get(j));
-			}
-		}
 	}
 }
